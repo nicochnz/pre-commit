@@ -1,9 +1,3 @@
-# TP : Sécuriser un dépôt Python avec les hooks pre-commit
-
-Projet fil rouge : NOVA SERVICES
-
-## 1. Analyse du code volontairement imparfait (section 3)
-
 ### 1. Problèmes de qualité du code
 
 `import os` n'est pas utilisé, `password` est déclaré mais jamais utilisé, la fonction mélange saisie, calcul et affichage, il n'y a aucune gestion d'erreur et pas de typage.
@@ -22,7 +16,7 @@ Il reste dans l'historique Git pour toujours, tous ceux qui ont accès au dépô
 
 ### 5. Première correction proposée
 
-Lire le secret depuis une variable d'environnement et remplacer `eval()` par une liste blanche d'opérations autorisées.
+Lire le secret depuis une variable d'environnement.
 
 ## 2. Problèmes détectés par les hooks et corrections
 
@@ -51,72 +45,8 @@ Résultat : `No known vulnerabilities found`
 
 Limite : "aucune vulnérabilité connue" ne signifie pas que la dépendance est sûre, seulement qu'aucune vulnérabilité n'est référencée aujourd'hui dans les bases consultées.
 
-## 4. Politique de sécurisation du code NOVA SERVICES (section 10)
 
-### 4.1 Contrôles obligatoires
-
-| Contrôle | Périmètre | Local (pre-commit) | CI | Bloquant |
-|---|---|---|---|---|
-| `trailing-whitespace`, `end-of-file-fixer`, `check-yaml` | Tous les dépôts | Oui | Oui | Oui |
-| `check-added-large-files` | Tous les dépôts | Oui | Oui | Oui |
-| `detect-secrets` | Tous les dépôts | Oui | Oui | Oui |
-| `bandit -ll` (sévérité moyenne et haute) | Dépôts Python | Oui | Oui | Oui |
-| Tests unitaires rapides (`pytest`) | Dépôts Python | Oui | Oui | Oui |
-| Suite de tests complète | Dépôts Python | Non | Oui | Oui |
-| `pip-audit` | Dépôts Python | Oui | Oui | Oui en CI, peut être désactivé en local si le service est indisponible |
-
-Les contrôles communs (format, fichiers volumineux, secrets) s'appliquent à l'API Python, à l'outil d'administration et aux scripts d'automatisation. Les contrôles Python (Bandit, pytest, pip-audit) s'appliquent aux dépôts contenant du code Python.
-
-### 4.2 Contrôles locaux et CI
-
-- Chaque développeur installe les hooks avec `pre-commit install` dès le clonage du dépôt.
-- La CI exécute `pre-commit run --all-files`, la suite de tests complète et `pip-audit`, car un hook local peut être absent ou contourné (`--no-verify`, `core.hooksPath`).
-- La branche `main` est protégée côté serveur : pas de push direct, pull request obligatoire, CI verte et une approbation de revue requises avant fusion.
-
-### 4.3 Conditions de blocage
-
-Un commit ou une pull request est bloqué si :
-
-- un secret potentiel non qualifié est détecté ;
-- Bandit remonte une alerte de sévérité moyenne ou haute ;
-- un test échoue ;
-- une dépendance présente une vulnérabilité connue avec un correctif disponible ;
-- un fichier de plus de 500 Ko est ajouté.
-
-### 4.4 Traitement des faux positifs
-
-- Toute détection est examinée avant d'être déclarée faux positif.
-- Un vrai secret n'est jamais ajouté au baseline : il est retiré du code, révoqué ou renouvelé, puis l'historique est nettoyé si nécessaire.
-- Un faux positif `detect-secrets` est validé avec `detect-secrets audit .secrets.baseline` ; le baseline modifié passe obligatoirement en revue de code.
-- Une exception Bandit utilise `# nosec <ID>` accompagné d'un commentaire de justification.
-
-### 4.5 Responsable de la validation des exceptions
-
-- Le responsable sécurité (ou un référent sécurité désigné par équipe) valide chaque exception.
-- Chaque exception est tracée (fichier, règle, justification, validateur, date) et réexaminée tous les trimestres.
-- Une dépendance vulnérable sans correctif disponible fait l'objet d'une exception temporaire avec mesure de contournement (désactivation de la fonctionnalité, filtrage des entrées, remplacement de la bibliothèque) et une date de réexamen.
-
-### 4.6 Mise à jour des outils
-
-- Le référent sécurité est responsable des versions des hooks.
-- Une fois par mois, il lance `pre-commit autoupdate` sur une branche dédiée, vérifie le résultat de `pre-commit run --all-files` puis ouvre une pull request.
-- Les versions des hooks restent épinglées (`rev`) pour garantir des résultats reproductibles.
-
-### 4.7 Preuve de correction d'une vulnérabilité
-
-La correction est prouvée par la pull request associée : le commit de correction, un test qui couvre le cas, la CI verte et le contrôle qui ne remonte plus l'alerte.
-
-## 5. Indicateurs de suivi (section 12)
-
-| Indicateur | Source | Propriétaire | Fréquence | Seuil d'alerte | Action déclenchée |
-|---|---|---|---|---|---|
-| Taux de dépôts configurés (dépôts avec `.pre-commit-config.yaml` versionné / dépôts concernés) | Inventaire des dépôts GitHub | Responsable sécurité | Mensuelle | Inférieur à 90 % | Relance des équipes concernées et accompagnement à la mise en place |
-| Délai médian de correction (temps entre la détection et la fusion de la correction) | Issues et pull requests GitHub, rapports CI | Lead développeur | Mensuelle | Supérieur à 7 jours pour une vulnérabilité haute | Priorisation dans le sprint suivant et escalade au responsable sécurité |
-| Nombre d'exceptions actives (entrées de baseline et `# nosec` validées) | `.secrets.baseline`, recherche `# nosec` dans le code | Responsable sécurité | Trimestrielle | Hausse de plus de 20 % ou exception non réexaminée depuis 3 mois | Revue des exceptions, suppression de celles qui ne sont plus justifiées |
-
-Ces indicateurs s'interprètent avec leur contexte : une hausse des détections peut refléter une meilleure couverture des contrôles plutôt qu'une dégradation.
-
-## 6. Questions de compréhension (section 13)
+## 4. Questions de compréhension (section 13)
 
 ### 1. Qu'est-ce qu'un hook pre-commit ?
 
